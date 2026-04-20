@@ -23,5 +23,8 @@ urlpatterns = [
     path('auth/login/', views.LoginView.as_view(), name='login'),
     path('auth/logout/', views.LogoutView.as_view(), name='logout'),
     path('profile/', views.ProfileView.as_view(), name='profile'),
+    path('profile/extended/', views.UserProfileView.as_view(), name='profile_extended'),
+    path('syllabus/', views.SyllabusUploadView.as_view(), name='syllabus_list'),
+    path('syllabus/<int:pk>/', views.SyllabusDetailView.as_view(), name='syllabus_detail'),
 ]
  

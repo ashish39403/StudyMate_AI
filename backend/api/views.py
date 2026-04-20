@@ -5,14 +5,15 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework_simplejwt.tokens import RefreshToken
-
+from .models import UserProfile , Syllabus
+from .serializers import UserProfileSerializer , SyllabusSerializer
 from .serializers import (
     UserSerializer,
     RegisterSerializer,
     LoginSerializer,
     UpdateProfileSerializer
 )
-
+from rest_framework.parsers import MultiPartParser , FormParser , JSONParser
 
 def health_check(request):
     return JsonResponse({
@@ -91,3 +92,70 @@ class LogoutView(APIView):
                 {"error": "Invalid or expired token"},
                 status=status.HTTP_400_BAD_REQUEST
             )
+            
+class UserProfileView(APIView):
+    permission_classes =[IsAuthenticated]
+    
+    def get(self , request):
+        profile ,created = UserProfile.objects.get_or_create(user = request.user)
+        serializer = UserProfileSerializer(profile)
+        return Response(serializer.data)
+    
+    def put(self, request):
+        profile , created = UserProfile.objects.get_or_create(user = request.user)
+        serializer = UserProfileSerializer(profile, data = request.data , partial =True)
+        serializer.is_valid(raise_exception=True)
+        serializer.save()
+        return Response(serializer.data)
+    
+    
+class SyllabusUploadView(APIView):
+    permission_classes = [IsAuthenticated]
+    parser_classes = [MultiPartParser, FormParser, JSONParser]
+    
+    def post(self, request):
+        serializer = SyllabusSerializer(
+            data=request.data, 
+            context={'request': request}
+        )
+        serializer.is_valid(raise_exception=True)
+        syllabus = serializer.save()
+        
+        # TODO: Trigger Celery task for text extraction (Day 5)
+        
+        return Response({
+            'message': 'Syllabus uploaded successfully!',
+            'syllabus': SyllabusSerializer(syllabus, context={'request': request}).data
+        }, status=status.HTTP_201_CREATED)
+    
+    def get(self, request):
+        syllabi = Syllabus.objects.filter(user=request.user).order_by('-uploaded_at')
+        serializer = SyllabusSerializer(syllabi, many=True, context={'request': request})
+        return Response(serializer.data)
+
+
+class SyllabusDetailView(APIView):
+    permission_classes = [IsAuthenticated]
+    
+    def get_object(self , pk , user):
+        try:
+            return Syllabus.objects.get(id =pk , user = user)
+        except Syllabus.DoesNotExist:
+            return None
+        
+    def get(self ,request ,pk):
+        syllabus = self.get_object(pk , request.user)
+        if not syllabus:
+            return Response({"error":"Syllabus not found"}, status=status.HTTP_404_NOT_FOUND)
+        
+        serializer = SyllabusSerializer(syllabus, context={'request': request})
+        return Response(serializer.data)
+    
+    def delete(self , request , pk):
+        syllabus = self.get_object(pk , request.user)
+        if not syllabus:
+            return Response({"error":"Syllabus not found"} ,status=status.HTTP_404_NOT_FOUND)
+        
+        syllabus.file.delete()
+        syllabus.delete()
+        return Response({"message":"Syllabus deleted Successfully !"})
