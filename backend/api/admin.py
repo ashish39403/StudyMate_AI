@@ -9,7 +9,5 @@ class UserProfileAdmin(admin.ModelAdmin):
 
 @admin.register(Syllabus)
 class SyllabusAdmin(admin.ModelAdmin):
-    list_display = ['title', 'user', 'is_processed', 'uploaded_at']
-    search_fields = ['title', 'user__username']
-    list_filter = ['is_processed', 'uploaded_at']
-    readonly_fields = ['extracted_text']
+    list_display = ('id', 'title', 'status', 'progress', 'uploaded_at')
+    list_filter = ('status',)

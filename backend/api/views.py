@@ -14,6 +14,10 @@ from .serializers import (
     UpdateProfileSerializer
 )
 from rest_framework.parsers import MultiPartParser , FormParser , JSONParser
+from .tasks import extract_text_from_pdf
+import logging
+logger = logging.getLogger(__name__)
+
 
 def health_check(request):
     return JsonResponse({
@@ -109,28 +113,35 @@ class UserProfileView(APIView):
         return Response(serializer.data)
     
     
+
 class SyllabusUploadView(APIView):
     permission_classes = [IsAuthenticated]
-    parser_classes = [MultiPartParser, FormParser, JSONParser]
-    
+    parser_classes = [MultiPartParser, FormParser]
+
     def post(self, request):
         serializer = SyllabusSerializer(
-            data=request.data, 
+            data=request.data,
             context={'request': request}
         )
         serializer.is_valid(raise_exception=True)
         syllabus = serializer.save()
-        
-        # TODO: Trigger Celery task for text extraction (Day 5)
-        
+        syllabus.status = "pending"
+        syllabus.progress = 0
+        syllabus.save()
+        extract_text_from_pdf.delay(syllabus.id)
         return Response({
-            'message': 'Syllabus uploaded successfully!',
-            'syllabus': SyllabusSerializer(syllabus, context={'request': request}).data
+            "message": "Syllabus uploaded successfully!",
+            "id": syllabus.id,
+            "status": syllabus.status
         }, status=status.HTTP_201_CREATED)
-    
+
     def get(self, request):
         syllabi = Syllabus.objects.filter(user=request.user).order_by('-uploaded_at')
-        serializer = SyllabusSerializer(syllabi, many=True, context={'request': request})
+        serializer = SyllabusSerializer(
+            syllabi,
+            many=True,
+            context={'request': request}
+        )
         return Response(serializer.data)
 
 

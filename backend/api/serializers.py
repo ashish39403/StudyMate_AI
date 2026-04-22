@@ -74,25 +74,33 @@ class UserProfileSerializer(serializers.ModelSerializer):
         instance.course = validated_data.get('course' ,instance.course)
         if 'avatar' in validated_data:
             instance.avatar = validated_data['avatar']
-            instance.save()
-            return instance
+        instance.save()
+        return instance
         
         
 class SyllabusSerializer(serializers.ModelSerializer):
     file_url = serializers.SerializerMethodField()
-    
+
     class Meta:
         model = Syllabus
-        fields = ['id', 'title', 'file', 'file_url', 'extracted_text', 
-                  'is_processed', 'uploaded_at']
-        read_only_fields = ['id', 'extracted_text', 'is_processed', 'uploaded_at']
-    
+        fields = [
+            'id', 'title', 'file', 'file_url',
+            'extracted_text', 'status', 'progress',
+            'error_message', 'uploaded_at'
+        ]
+        read_only_fields = ['extracted_text', 'status', 'progress', 'error_message']
+
     def get_file_url(self, obj):
-        if obj.file:
-            return obj.file.url
+        request = self.context.get('request')
+        if obj.file and request:
+            return request.build_absolute_uri(obj.file.url)
         return None
-    
+
+    def validate_file(self, value):
+        if not value.name.endswith('.pdf'):
+            raise serializers.ValidationError("Only PDF files allowed")
+        return value
+
     def create(self, validated_data):
         validated_data['user'] = self.context['request'].user
         return super().create(validated_data)
-    
