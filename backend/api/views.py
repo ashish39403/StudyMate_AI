@@ -14,8 +14,12 @@ from .serializers import (
     UpdateProfileSerializer
 )
 from rest_framework.parsers import MultiPartParser , FormParser , JSONParser
-from .tasks import extract_text_from_pdf
+# from .tasks import extract_text_from_pdf
 import logging
+from .tasks import process_syllabus
+from rest_framework.parsers import MultiPartParser, FormParser, JSONParser
+from rest_framework.permissions import IsAuthenticated
+
 logger = logging.getLogger(__name__)
 
 
@@ -114,36 +118,40 @@ class UserProfileView(APIView):
     
     
 
-class SyllabusUploadView(APIView):
-    permission_classes = [IsAuthenticated]
-    parser_classes = [MultiPartParser, FormParser]
 
+class SyllabusUploadView(APIView):
+    
+    permission_classes = [IsAuthenticated]   # 🔒 security
+    parser_classes = [MultiPartParser, FormParser, JSONParser]  # 📁 file support
+    
     def post(self, request):
         serializer = SyllabusSerializer(
             data=request.data,
             context={'request': request}
         )
         serializer.is_valid(raise_exception=True)
+        
         syllabus = serializer.save()
+
+        # 🔥 initial state
         syllabus.status = "pending"
         syllabus.progress = 0
+        syllabus.is_processed = False
         syllabus.save()
-        extract_text_from_pdf.delay(syllabus.id)
+
+        # 🚀 Celery trigger
+        try:
+            process_syllabus.delay(syllabus.id)
+        except Exception as e:
+            print("Celery error:", e)
+
         return Response({
-            "message": "Syllabus uploaded successfully!",
-            "id": syllabus.id,
-            "status": syllabus.status
+            "message": "Syllabus uploaded! Processing started 🚀",
+            "syllabus": SyllabusSerializer(
+                syllabus,
+                context={'request': request}
+            ).data
         }, status=status.HTTP_201_CREATED)
-
-    def get(self, request):
-        syllabi = Syllabus.objects.filter(user=request.user).order_by('-uploaded_at')
-        serializer = SyllabusSerializer(
-            syllabi,
-            many=True,
-            context={'request': request}
-        )
-        return Response(serializer.data)
-
 
 class SyllabusDetailView(APIView):
     permission_classes = [IsAuthenticated]
@@ -170,3 +178,6 @@ class SyllabusDetailView(APIView):
         syllabus.file.delete()
         syllabus.delete()
         return Response({"message":"Syllabus deleted Successfully !"})
+    
+    
+    

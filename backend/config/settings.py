@@ -12,6 +12,15 @@ https://docs.djangoproject.com/en/5.2/ref/settings/
 import os
 from django.conf import settings
 from pathlib import Path
+from dotenv import load_dotenv
+
+load_dotenv()
+
+# AI CREDITS SETTING
+
+AI_CREDITS_API_KEY = os.getenv("AI_CREDITS_API_KEY")
+AI_CREDITS_BASE_URL = os.getenv("AI_CREDITS_BASE_URL")
+AI_CREDITS_MODEL = os.getenv("AI_CREDITS_MODEL" , "gpt-4o-mini")
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -42,6 +51,8 @@ INSTALLED_APPS = [
     'api',
     'rest_framework',
     'corsheaders',
+    'ai_engine'
+    
     
 ]
 

@@ -32,7 +32,7 @@ class Syllabus(models.Model):
     status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='pending')
     progress = models.IntegerField(default=0)
     error_message = models.TextField(blank=True, null=True)
-
+    is_processed = models.BooleanField(default=False)
     uploaded_at = models.DateTimeField(auto_now_add=True)
 
     def __str__(self):
