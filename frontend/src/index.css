@@ -1,0 +1,83 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    color-scheme: dark;
+  }
+  html,
+  body,
+  #root {
+    height: 100%;
+  }
+  body {
+    @apply bg-background text-foreground;
+    font-feature-settings: "cv11", "ss01";
+  }
+}
+
+@layer components {
+  .glass {
+    @apply bg-white/[0.04] backdrop-blur-xl border border-white/[0.08] shadow-2xl;
+  }
+  .glass-hover {
+    @apply hover:bg-white/[0.06] hover:border-white/[0.12] transition-colors;
+  }
+  .gradient-text {
+    @apply bg-clip-text text-transparent bg-gradient-to-r from-indigo-300 via-fuchsia-300 to-emerald-300;
+  }
+  .animated-gradient-bg {
+    background: radial-gradient(
+        1200px 600px at 10% 10%,
+        rgba(99, 102, 241, 0.25),
+        transparent 60%
+      ),
+      radial-gradient(
+        900px 600px at 90% 20%,
+        rgba(217, 70, 239, 0.18),
+        transparent 60%
+      ),
+      radial-gradient(
+        1000px 700px at 50% 100%,
+        rgba(16, 185, 129, 0.18),
+        transparent 60%
+      ),
+      linear-gradient(135deg, #0a0a0f, #0b0b14 60%, #08080d);
+    background-size: 200% 200%;
+    animation: gradient-shift 14s ease infinite;
+  }
+}
+
+/* Scrollbar */
+::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: hsl(240 6% 18%);
+  border-radius: 8px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: hsl(240 6% 26%);
+}
+
+/* Bouncing dots typing indicator */
+.dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 9999px;
+  background: hsl(238 84% 67%);
+  display: inline-block;
+  margin: 0 2px;
+  animation: bounce1 1.4s infinite ease-in-out both;
+}
+.dot:nth-child(1) {
+  animation-delay: -0.32s;
+}
+.dot:nth-child(2) {
+  animation-delay: -0.16s;
+}

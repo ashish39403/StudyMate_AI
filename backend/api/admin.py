@@ -1,5 +1,5 @@
 from django.contrib import admin
-from .models import UserProfile, Syllabus
+from .models import UserProfile, Syllabus , ChatMessage
 
 @admin.register(UserProfile)
 class UserProfileAdmin(admin.ModelAdmin):
@@ -11,3 +11,7 @@ class UserProfileAdmin(admin.ModelAdmin):
 class SyllabusAdmin(admin.ModelAdmin):
     list_display = ('id', 'title', 'status', 'progress', 'uploaded_at')
     list_filter = ('status',)
+    
+@admin.register(ChatMessage)
+class SyllabusAdmin(admin.ModelAdmin):
+    list_display = ('id', 'user', 'created_at', 'role')

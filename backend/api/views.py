@@ -19,6 +19,10 @@ import logging
 from .tasks import process_syllabus
 from rest_framework.parsers import MultiPartParser, FormParser, JSONParser
 from rest_framework.permissions import IsAuthenticated
+import requests
+from .models import ChatMessage
+from ai_engine.chains import ask_syllabus
+
 
 logger = logging.getLogger(__name__)
 
@@ -53,22 +57,42 @@ class RegisterView(generics.CreateAPIView):
 
 
 
-class LoginView(APIView):
-    permission_classes = [AllowAny]
-    def post(self, request):
-        serializer = LoginSerializer(data=request.data)
-        serializer.is_valid(raise_exception=True)
 
-        user = serializer.validated_data
+
+from django.contrib.auth import authenticate
+
+class LoginView(APIView):
+    permission_classes = []
+    def post(self, request):
+        username = request.data.get("username")
+        password = request.data.get("password")
+
+        if not username or not password:
+            return Response(
+                {"error": "Username and password required"},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        user = authenticate(username=username, password=password)
+
+        if user is None:
+            return Response(
+                {"error": "Invalid username or password"},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
         refresh = RefreshToken.for_user(user)
+
         return Response({
-            "user": UserSerializer(user).data,
             "access": str(refresh.access_token),
             "refresh": str(refresh),
-            "message": "Login successful"
+            "user": {
+                "username": user.username,
+                "email": user.email,
+                "first_name": user.first_name,
+                "last_name": user.last_name,
+            }
         })
-
-
 
 class ProfileView(APIView):
     permission_classes = [IsAuthenticated]
@@ -120,10 +144,14 @@ class UserProfileView(APIView):
 
 
 class SyllabusUploadView(APIView):
-    
-    permission_classes = [IsAuthenticated]   # 🔒 security
-    parser_classes = [MultiPartParser, FormParser, JSONParser]  # 📁 file support
-    
+    permission_classes = [IsAuthenticated]
+    parser_classes = [MultiPartParser, FormParser, JSONParser]
+
+    def get(self, request):
+        syllabus = Syllabus.objects.filter(user=request.user)
+        serializer = SyllabusSerializer(syllabus, many=True, context={'request': request})
+        return Response(serializer.data)
+
     def post(self, request):
         serializer = SyllabusSerializer(
             data=request.data,
@@ -132,14 +160,9 @@ class SyllabusUploadView(APIView):
         serializer.is_valid(raise_exception=True)
         
         syllabus = serializer.save()
-
-        # 🔥 initial state
-        syllabus.status = "pending"
-        syllabus.progress = 0
         syllabus.is_processed = False
         syllabus.save()
 
-        # 🚀 Celery trigger
         try:
             process_syllabus.delay(syllabus.id)
         except Exception as e:
@@ -152,7 +175,9 @@ class SyllabusUploadView(APIView):
                 context={'request': request}
             ).data
         }, status=status.HTTP_201_CREATED)
-
+        
+        
+        
 class SyllabusDetailView(APIView):
     permission_classes = [IsAuthenticated]
     
@@ -181,3 +206,44 @@ class SyllabusDetailView(APIView):
     
     
     
+class ChatHistoryView(APIView):
+    permission_classes = [IsAuthenticated]
+    
+    def get(self, request, syllabus_id):
+        messages = ChatMessage.objects.filter(
+            syllabus_id=syllabus_id,
+            user=request.user
+        ).order_by('created_at')
+        return Response([{
+            'role': msg.role,
+            'content': msg.content,
+            'created_at': msg.created_at
+        } for msg in messages])
+
+class ChatWithHistoryView(APIView):
+    permission_classes = [IsAuthenticated]
+    
+    def post(self, request):
+        syllabus_id = request.data.get('syllabus_id')
+        question = request.data.get('question')
+        
+        # Get history
+        history = ChatMessage.objects.filter(
+            syllabus_id=syllabus_id,
+            user=request.user
+        ).order_by('-created_at')[:6]  # Last 6 messages
+        
+        # Build context from history
+        context = "\n".join([
+            f"{'Student' if msg.role == 'user' else 'AI'}: {msg.content}"
+            for msg in reversed(history)
+        ])
+        
+        # Get answer from RAG
+        result = ask_syllabus(syllabus_id, question, context)
+        
+        # Save both messages
+        ChatMessage.objects.create(syllabus_id=syllabus_id, user=request.user, role='user', content=question)
+        ChatMessage.objects.create(syllabus_id=syllabus_id, user=request.user, role='assistant', content=result['answer'])
+        
+        return Response(result)

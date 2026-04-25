@@ -20,5 +20,6 @@ from .import views
 
  
 urlpatterns = [
-    path('chat/' , views.ChatWithSyllabusView.as_view(), name='chatd')
+    path('chat/' , views.ChatWithSyllabusView.as_view(), name='chat'),
+    path('chat/history/<int:syllabus_id>/', views.ChatHistoryView.as_view(), name='chat_history'),
 ]

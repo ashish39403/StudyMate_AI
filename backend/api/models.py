@@ -40,3 +40,17 @@ class Syllabus(models.Model):
 
     class Meta:
         verbose_name_plural = "Syllabi"
+        
+class ChatMessage(models.Model):
+    syllabus = models.ForeignKey(Syllabus, on_delete=models.CASCADE, related_name='messages')
+    user = models.ForeignKey(User, on_delete=models.CASCADE)
+    role = models.CharField(max_length=10, choices=[('user', 'User'), ('assistant', 'Assistant')])
+    content = models.TextField()
+    sources = models.JSONField(default=list, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    
+    class Meta:
+        ordering = ['created_at']
+    
+    def __str__(self):
+        return f"{self.role}: {self.content[:50]}"
